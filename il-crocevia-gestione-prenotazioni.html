@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Il Crocevia - Gestione Prenotazioni</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f4f1ea;
+    margin: 0;
+    color: #3a3a3a;
+  }
+  header {
+    background: linear-gradient(135deg, #6b3fa0, #a05fc0);
+    color: white;
+    padding: 24px 32px;
+  }
+  header h1 { margin: 0; font-size: 28px; }
+  header p { margin: 4px 0 0; opacity: 0.9; }
+
+  main {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .list-section { grid-column: 1 / -1; }
+
+  .calendar-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .calendar-nav button {
+    background: #6b3fa0; color: white; border: none; border-radius: 6px;
+    padding: 8px 14px; cursor: pointer; font-size: 16px;
+  }
+  .calendar-nav button:hover { background: #5a3486; }
+  #monthYear { text-transform: capitalize; margin: 0; font-size: 18px; }
+
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .day-name {
+    text-align: center; font-weight: 600; font-size: 12px; color: #888; padding: 4px 0;
+  }
+  .day-cell {
+    aspect-ratio: 1; border-radius: 8px; background: #f8f7f4;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 13px; position: relative; padding: 4px;
+    cursor: pointer; transition: background 0.15s, transform 0.1s;
+  }
+  .day-cell.empty { background: transparent; cursor: default; }
+  .day-cell.past { cursor: default; opacity: 0.55; }
+  .day-cell:not(.empty):not(.occupied):hover { background: #ece7f7; }
+  .day-cell:not(.empty):active { transform: scale(0.96); }
+  .day-cell.today { border: 2px solid #6b3fa0; }
+  .day-cell.occupied { background: #e74c3c; color: white; }
+  .day-cell.occupied:hover { background: #c0392b; }
+  .day-number { font-weight: 600; }
+  .day-guest {
+    font-size: 9px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; max-width: 100%;
+  }
+
+  .legend { display: flex; gap: 16px; margin-top: 16px; font-size: 13px; color: #666; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .dot.occupied { background: #e74c3c; }
+  .dot.today { border: 2px solid #6b3fa0; background: white; }
+  .calendar-hint { font-size: 12px; color: #999; margin-top: 8px; }
+
+  form { display: flex; flex-direction: column; gap: 12px; }
+  label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 2px; display: block; }
+  input, select, textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+    font-size: 14px; font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button[type=submit] {
+    background: #6b3fa0; color: white; border: none; padding: 10px;
+    border-radius: 6px; font-size: 15px; cursor: pointer; font-weight: 600;
+  }
+  button[type=submit]:hover { background: #5a3486; }
+  #cancelEdit {
+    background: #999; color: white; border: none; padding: 10px;
+    border-radius: 6px; cursor: pointer;
+  }
+  .warning {
+    background: #fff3cd; border: 1px solid #ffc107; color: #856404;
+    padding: 10px; border-radius: 6px; font-size: 13px; margin-top: 8px;
+  }
+
+  .list-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .backup-actions button {
+    background: #eee; border: 1px solid #ccc; border-radius: 6px;
+    padding: 6px 12px; cursor: pointer; font-size: 13px; margin-left: 6px;
+  }
+  .backup-actions button:hover { background: #ddd; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 12px; }
+  th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #f8f7f4; font-weight: 600; color: #555; }
+  tr.flash { animation: flash 1.5s ease; }
+  @keyframes flash { 0%,100% { background: white; } 50% { background: #ffe5e0; } }
+  .edit-btn, .delete-btn { background: none; border: none; cursor: pointer; font-size: 16px; margin-right: 4px; }
+  .empty-state { text-align: center; color: #999; padding: 20px; }
+
+  /* Modale dettagli prenotazione */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(40, 30, 55, 0.55);
+    align-items: center; justify-content: center; padding: 16px; z-index: 1000;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card {
+    background: white; border-radius: 14px; max-width: 420px; width: 100%;
+    padding: 24px; box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+    max-height: 85vh; overflow-y: auto;
+    animation: modalIn 0.18s ease;
+  }
+  @keyframes modalIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 4px; }
+  .modal-header h3 { margin: 0; font-size: 19px; color: #4a2a72; }
+  .modal-close {
+    background: none; border: none; font-size: 20px; cursor: pointer; color: #999;
+    line-height: 1; padding: 2px 4px;
+  }
+  .modal-close:hover { color: #555; }
+  .modal-dates { font-size: 13px; color: #777; margin-bottom: 16px; }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-bottom: 14px; }
+  .modal-field { font-size: 13px; }
+  .modal-field .mf-label { color: #999; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; }
+  .modal-field .mf-value { color: #333; font-weight: 500; }
+  .modal-notes {
+    font-size: 13px; background: #f8f7f4; border-radius: 8px; padding: 10px 12px;
+    margin-bottom: 16px; color: #555; white-space: pre-wrap;
+  }
+  .modal-notes .mf-label { color: #999; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
+  .modal-actions { display: flex; gap: 8px; }
+  .modal-actions button {
+    flex: 1; padding: 9px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 600;
+  }
+  .modal-edit-btn { background: #6b3fa0; color: white; }
+  .modal-edit-btn:hover { background: #5a3486; }
+  .modal-delete-btn { background: #fbeaea; color: #c0392b; }
+  .modal-delete-btn:hover { background: #f6d5d5; }
+
+  .loading-note { text-align: center; color: #999; padding: 16px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏠 Il Crocevia</h1>
+  <p>Gestione Prenotazioni</p>
+</header>
+
+<main>
+  <section class="calendar-section">
+    <div class="calendar-nav">
+      <button id="prevMonth">←</button>
+      <h2 id="monthYear"></h2>
+      <button id="nextMonth">→</button>
+    </div>
+    <div class="calendar-grid" id="calendarGrid"></div>
+    <div class="legend">
+      <span class="legend-item"><span class="dot occupied"></span> Notte prenotata</span>
+      <span class="legend-item"><span class="dot today"></span> Oggi</span>
+    </div>
+    <div class="calendar-hint">Clicca su una data per vedere i dettagli, oppure su un giorno libero per iniziare una nuova prenotazione da lì.</div>
+  </section>
+
+  <section class="form-section">
+    <h2 id="formTitle">Nuova Prenotazione</h2>
+    <form id="bookingForm">
+      <div>
+        <label for="guestName">Nome Ospite *</label>
+        <input type="text" id="guestName" required>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="checkIn">Check-in *</label>
+          <input type="date" id="checkIn" required>
+        </div>
+        <div>
+          <label for="checkOut">Check-out *</label>
+          <input type="date" id="checkOut" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="guestsCount">N. Ospiti</label>
+          <input type="number" id="guestsCount" min="1">
+        </div>
+        <div>
+          <label for="price">Prezzo Totale (€)</label>
+          <input type="number" id="price" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="phone">Telefono</label>
+          <input type="tel" id="phone">
+        </div>
+        <div>
+          <label for="email">Email</label>
+          <input type="email" id="email">
+        </div>
+      </div>
+      <div>
+        <label for="channel">Canale</label>
+        <select id="channel">
+          <option value="">-- Seleziona --</option>
+          <option value="Diretta/Privata">Diretta/Privata</option>
+          <option value="Airbnb">Airbnb</option>
+          <option value="Booking.com">Booking.com</option>
+          <option value="WhatsApp">WhatsApp</option>
+          <option value="Altro">Altro</option>
+        </select>
+      </div>
+      <div>
+        <label for="notes">Note</label>
+        <textarea id="notes" placeholder="Richieste particolari, orario arrivo, ecc."></textarea>
+      </div>
+      <button type="submit">💾 Salva Prenotazione</button>
+      <button type="button" id="cancelEdit" style="display:none">Annulla modifica</button>
+    </form>
+    <div id="overlapWarning" class="warning" style="display:none"></div>
+  </section>
+
+  <section class="list-section">
+    <div class="list-header">
+      <h2>Elenco Prenotazioni</h2>
+      <div class="backup-actions">
+        <button type="button" id="exportBtn">⬇️ Esporta Backup</button>
+        <button type="button" id="importBtn">⬆️ Importa Backup</button>
+        <input type="file" id="importInput" accept="application/json" style="display:none">
+      </div>
+    </div>
+    <table id="bookingsTable">
+      <thead>
+        <tr>
+          <th>Ospite</th><th>Check-in</th><th>Check-out</th><th>Notti</th>
+          <th>Ospiti</th><th>Canale</th><th>Prezzo</th><th>Telefono</th><th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="bookingsBody"></tbody>
+    </table>
+    <div id="emptyState" class="empty-state" style="display:none">Nessuna prenotazione inserita.</div>
+    <div id="loadingState" class="loading-note">Caricamento prenotazioni...</div>
+  </section>
+</main>
+
+<!-- Modale dettagli prenotazione -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-card" id="modalCard"></div>
+</div>
+
+<script>
+  let bookings = [];
+  let currentDate = new Date();
+  let editingId = null;
+  let dataLoaded = false;
+
+  function generateId() {
+    return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  }
+
+  // --- Persistenza (storage artifact di Claude, dati personali non condivisi) ---
+  async function loadBookings() {
+    try {
+      const result = await window.storage.get('bookings', false);
+      bookings = result && result.value ? JSON.parse(result.value) : [];
+    } catch (e) {
+      bookings = [];
+    }
+    dataLoaded = true;
+    document.getElementById('loadingState').style.display = 'none';
+    renderAll();
+  }
+
+  async function saveBookings() {
+    try {
+      const result = await window.storage.set('bookings', JSON.stringify(bookings), false);
+      if (!result) {
+        alert('Non è stato possibile salvare la prenotazione. Riprova.');
+      }
+    } catch (e) {
+      console.error('Errore salvataggio', e);
+      alert('Errore nel salvataggio dei dati.');
+    }
+  }
+
+  function formatDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function formatDisplayDate(dateStr) {
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  function getOccupiedNights(booking) {
+    const nights = [];
+    let d = new Date(booking.checkIn + 'T00:00:00');
+    const end = new Date(booking.checkOut + 'T00:00:00');
+    while (d < end) {
+      nights.push(formatDate(d));
+      d.setDate(d.getDate() + 1);
+    }
+    return nights;
+  }
+
+  function getBookingForDate(dateStr) {
+    return bookings.find(b => getOccupiedNights(b).includes(dateStr));
+  }
+
+  function renderCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    document.getElementById('monthYear').textContent =
+      currentDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+
+    ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].forEach(dn => {
+      const el = document.createElement('div');
+      el.className = 'day-name';
+      el.textContent = dn;
+      grid.appendChild(el);
+    });
+
+    const firstDay = new Date(year, month, 1);
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let i = 0; i < startOffset; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'day-cell empty';
+      grid.appendChild(empty);
+    }
+
+    const todayStr = formatDate(new Date());
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateObj = new Date(year, month, day);
+      const dateStr = formatDate(dateObj);
+      const cell = document.createElement('div');
+      cell.className = 'day-cell';
+      if (dateStr === todayStr) cell.classList.add('today');
+
+      const booking = getBookingForDate(dateStr);
+      if (booking) {
+        cell.classList.add('occupied');
+        cell.title = `${booking.guestName} (${formatDisplayDate(booking.checkIn)} → ${formatDisplayDate(booking.checkOut)})`;
+        cell.addEventListener('click', () => openBookingModal(booking.id));
+      } else {
+        cell.title = 'Clicca per iniziare una nuova prenotazione da questa data';
+        cell.addEventListener('click', () => startNewBookingFromDate(dateStr));
+      }
+
+      const num = document.createElement('span');
+      num.className = 'day-number';
+      num.textContent = day;
+      cell.appendChild(num);
+
+      if (booking) {
+        const label = document.createElement('span');
+        label.className = 'day-guest';
+        label.textContent = booking.guestName.split(' ')[0];
+        cell.appendChild(label);
+      }
+
+      grid.appendChild(cell);
+    }
+  }
+
+  function highlightBookingRow(id) {
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.add('flash');
+      setTimeout(() => row.classList.remove('flash'), 1500);
+    }
+  }
+
+  // --- Modale dettagli prenotazione ---
+  function openBookingModal(id) {
+    const booking = bookings.find(b => b.id === id);
+    if (!booking) return;
+    const nights = getOccupiedNights(booking).length;
+
+    const field = (label, value) => `
+      <div class="modal-field">
+        <div class="mf-label">${label}</div>
+        <div class="mf-value">${value && String(value).trim() ? value : '-'}</div>
+      </div>`;
+
+    const card = document.getElementById('modalCard');
+    card.innerHTML = `
+      <div class="modal-header">
+        <h3>${booking.guestName}</h3>
+        <button class="modal-close" id="modalCloseBtn" aria-label="Chiudi">✕</button>
+      </div>
+      <div class="modal-dates">
+        ${formatDisplayDate(booking.checkIn)} → ${formatDisplayDate(booking.checkOut)} · ${nights} nott${nights === 1 ? 'e' : 'i'}
+      </div>
+      <div class="modal-grid">
+        ${field('Ospiti', booking.guestsCount)}
+        ${field('Prezzo Totale', booking.price ? '€' + booking.price : '')}
+        ${field('Telefono', booking.phone)}
+        ${field('Email', booking.email)}
+        ${field('Canale', booking.channel)}
+      </div>
+      ${booking.notes && booking.notes.trim() ? `
+        <div class="modal-notes">
+          <div class="mf-label">Note</div>
+          <div>${booking.notes}</div>
+        </div>` : ''}
+      <div class="modal-actions">
+        <button class="modal-edit-btn" id="modalEditBtn">✏️ Modifica</button>
+        <button class="modal-delete-btn" id="modalDeleteBtn">🗑️ Elimina</button>
+      </div>
+    `;
+
+    document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+    document.getElementById('modalEditBtn').addEventListener('click', () => {
+      closeModal();
+      startEdit(booking.id);
+    });
+    document.getElementById('modalDeleteBtn').addEventListener('click', () => {
+      closeModal();
+      deleteBooking(booking.id);
+    });
+
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+
+  document.getElementById('modalOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'modalOverlay') closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  function startNewBookingFromDate(dateStr) {
+    resetForm();
+    document.getElementById('checkIn').value = dateStr;
+    const next = new Date(dateStr + 'T00:00:00');
+    next.setDate(next.getDate() + 1);
+    document.getElementById('checkOut').value = formatDate(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('guestName').focus();
+  }
+
+  function renderBookingsList() {
+    const tbody = document.getElementById('bookingsBody');
+    tbody.innerHTML = '';
+    const sorted = [...bookings].sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+
+    document.getElementById('emptyState').style.display = (dataLoaded && sorted.length === 0) ? 'block' : 'none';
+
+    sorted.forEach(b => {
+      const nights = getOccupiedNights(b).length;
+      const tr = document.createElement('tr');
+      tr.dataset.id = b.id;
+      tr.style.cursor = 'pointer';
+      tr.innerHTML = `
+        <td>${b.guestName}</td>
+        <td>${formatDisplayDate(b.checkIn)}</td>
+        <td>${formatDisplayDate(b.checkOut)}</td>
+        <td>${nights}</td>
+        <td>${b.guestsCount || '-'}</td>
+        <td>${b.channel || '-'}</td>
+        <td>${b.price ? '€' + b.price : '-'}</td>
+        <td>${b.phone || '-'}</td>
+        <td>
+          <button class="edit-btn" data-id="${b.id}">✏️</button>
+          <button class="delete-btn" data-id="${b.id}">🗑️</button>
+        </td>
+      `;
+      tr.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        openBookingModal(b.id);
+      });
+      tbody.appendChild(tr);
+    });
+
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); startEdit(btn.dataset.id); });
+    });
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); deleteBooking(btn.dataset.id); });
+    });
+  }
+
+  function startEdit(id) {
+    const booking = bookings.find(b => b.id === id);
+    if (!booking) return;
+    editingId = id;
+    document.getElementById('formTitle').textContent = 'Modifica Prenotazione';
+    document.getElementById('guestName').value = booking.guestName;
+    document.getElementById('checkIn').value = booking.checkIn;
+    document.getElementById('checkOut').value = booking.checkOut;
+    document.getElementById('guestsCount').value = booking.guestsCount || '';
+    document.getElementById('phone').value = booking.phone || '';
+    document.getElementById('email').value = booking.email || '';
+    document.getElementById('channel').value = booking.channel || '';
+    document.getElementById('price').value = booking.price || '';
+    document.getElementById('notes').value = booking.notes || '';
+    document.getElementById('cancelEdit').style.display = 'inline-block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function deleteBooking(id) {
+    if (!confirm('Vuoi eliminare questa prenotazione?')) return;
+    bookings = bookings.filter(b => b.id !== id);
+    await saveBookings();
+    renderAll();
+  }
+
+  function resetForm() {
+    editingId = null;
+    document.getElementById('formTitle').textContent = 'Nuova Prenotazione';
+    document.getElementById('bookingForm').reset();
+    document.getElementById('cancelEdit').style.display = 'none';
+    document.getElementById('overlapWarning').style.display = 'none';
+  }
+
+  function checkOverlap(checkIn, checkOut, excludeId) {
+    const newNights = getOccupiedNights({ checkIn, checkOut });
+    return bookings.some(b => {
+      if (b.id === excludeId) return false;
+      const nights = getOccupiedNights(b);
+      return newNights.some(n => nights.includes(n));
+    });
+  }
+
+  document.getElementById('bookingForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const guestName = document.getElementById('guestName').value.trim();
+    const checkIn = document.getElementById('checkIn').value;
+    const checkOut = document.getElementById('checkOut').value;
+    const guestsCount = document.getElementById('guestsCount').value;
+    const phone = document.getElementById('phone').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const channel = document.getElementById('channel').value;
+    const price = document.getElementById('price').value;
+    const notes = document.getElementById('notes').value.trim();
+
+    if (new Date(checkOut) <= new Date(checkIn)) {
+      alert('La data di check-out deve essere successiva al check-in.');
+      return;
+    }
+
+    const overlap = checkOverlap(checkIn, checkOut, editingId);
+    const warningEl = document.getElementById('overlapWarning');
+    if (overlap) {
+      warningEl.style.display = 'block';
+      warningEl.textContent = "⚠️ Attenzione: queste date si sovrappongono a un'altra prenotazione già presente!";
+    } else {
+      warningEl.style.display = 'none';
+    }
+
+    const bookingData = {
+      id: editingId || generateId(),
+      guestName, checkIn, checkOut, guestsCount, phone, email, channel, price, notes
+    };
+
+    if (editingId) {
+      const idx = bookings.findIndex(b => b.id === editingId);
+      bookings[idx] = bookingData;
+    } else {
+      bookings.push(bookingData);
+    }
+
+    await saveBookings();
+    resetForm();
+    renderAll();
+  });
+
+  document.getElementById('cancelEdit').addEventListener('click', resetForm);
+
+  document.getElementById('prevMonth').addEventListener('click', () => {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+  });
+  document.getElementById('nextMonth').addEventListener('click', () => {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const dataStr = JSON.stringify(bookings, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'crocevia_prenotazioni_backup.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importInput').click();
+  });
+
+  document.getElementById('importInput').addEventListener('change', function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function (ev) {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        if (Array.isArray(imported)) {
+          if (confirm('Vuoi sostituire tutte le prenotazioni attuali con quelle importate?')) {
+            bookings = imported;
+            await saveBookings();
+            renderAll();
+          }
+        } else {
+          alert('File non valido.');
+        }
+      } catch (err) {
+        alert('File non valido.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  function renderAll() {
+    renderCalendar();
+    renderBookingsList();
+  }
+
+  loadBookings();
+</script>
+
+</body>
+</html>
