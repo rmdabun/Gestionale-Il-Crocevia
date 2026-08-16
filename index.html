@@ -654,27 +654,38 @@
   loadBookings();
 </script>
 
- import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+<!-- 1. Carichiamo le librerie di Firebase tramite script compatibili -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
- // TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+<script>
+  // 2. Configurazione con le tue credenziali (prese dalla tua schermata)
+  const firebaseConfig = {
+    apiKey: "AIzaSyAvi0XCPvyklQqNpAhp4b-uvp-5J7acniM",
+    authDomain: "gestionale-crocevia.firebaseapp.com",
+    databaseURL: "https://gestionale-crocevia-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "gestionale-crocevia",
+    storageBucket: "gestionale-crocevia.firebasestorage.app",
+    messagingSenderId: "1072947877731",
+    appId: "1:1072947877731:web:af03882380056ff9012556"
+  };
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyAvi0XCPvyklQqNpAhp4b-uvp-5J7acniM",
-  authDomain: "gestionale-crocevia.firebaseapp.com",
-  databaseURL: "https://gestionale-crocevia-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "gestionale-crocevia",
-  storageBucket: "gestionale-crocevia.firebasestorage.app",
-  messagingSenderId: "1072947877731",
-  appId: "1:1072947877731:web:af03882380056ff9012556",
-  measurementId: "G-QCBE9PXSTV"
-};
+  // 3. Inizializziamo Firebase e il Database
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+  // 4. Esegui la tua funzione per caricare le prenotazioni
+  loadBookings();
+
+database.ref('prenotazioni').push
+ database.ref('prenotazioni').on('value', (snapshot) => {
+  const prenotazioni = snapshot.val();
+  // Codice per mostrare le prenotazioni sul calendario
+});
+</script>
+
+</body>
+</html>
+
 </body>
 </html>
